@@ -29,9 +29,9 @@ namespace NoobChessServer.Auth
             return response;
         }
 
-        public async Task<ServiceResponse<string>> LoginWithGoogle(GoogleLoginDto googleLoginDto)
+        public async Task<ServiceResponse<LoginResponseDto>> LoginWithGoogle(GoogleLoginDto googleLoginDto)
         {
-            var response = new ServiceResponse<string>();
+            var response = new ServiceResponse<LoginResponseDto>();
 
             // Call Google API to verify the token
             using (var client = new HttpClient())
@@ -51,12 +51,20 @@ namespace NoobChessServer.Auth
                 {
                     var userInfo = JsonConvert.DeserializeObject<GoogleUser>(jsonMessage);
 
-                    // If login not success
                     if (!string.IsNullOrEmpty(userInfo!.Sub) && !string.IsNullOrEmpty(userInfo!.Email))
                     {
-                        response.Data = CreateJWTToken(userInfo.Sub, userInfo.Email);
+                        response.Data = new LoginResponseDto()
+                        {
+                            Sub = userInfo.Sub,
+                            Name = userInfo.Name,
+                            Picture = userInfo.Picture,
+                            Email = userInfo.Email,
+                            Locale = userInfo.Locale,
+                            JWTToken = CreateJWTToken(userInfo.Sub, userInfo.Email)
+                        };
                         response.Message = "Google login successfully";
                     }
+                    // If login not success
                     else
                     {
                         response.Message = "Google login failed";
