@@ -1,4 +1,6 @@
 global using NoobChessServer.Models;
+global using NoobChessServer.Data;
+using Microsoft.EntityFrameworkCore;
 using NoobChessServer.Auth;
 
 // Enable CORS
@@ -15,6 +17,10 @@ builder.Services.AddCors(options =>
             policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin();
         });
 });
+
+// Add the DbContext
+builder.Services.AddDbContext<DataContext>(options
+    => options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreElephantSQL")));
 
 // Add services to the container.
 
