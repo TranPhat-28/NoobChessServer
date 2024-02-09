@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using NoobChessServer.DTOs.LoginDtos;
 using System.IdentityModel.Tokens.Jwt;
+using NoobChessServer.DTOs.UserDtos;
 
 namespace NoobChessServer.Auth
 {
@@ -19,19 +20,59 @@ namespace NoobChessServer.Auth
         {
             _configuration = configuration;
         }
-        public async Task<ServiceResponse<string>> LoginWithFacebook(FacebookLoginDto facebookLoginDto)
+        public async Task<ServiceResponse<GetUserDto>> LoginWithFacebook(FacebookLoginDto facebookLoginDto)
         {
-            var response = new ServiceResponse<string>
+            var response = new ServiceResponse<GetUserDto>();
+
+            // Call Google API to verify the token
+            using (var client = new HttpClient())
             {
-                Message = "Login with Facebook"
-            };
+                // Make a request to the Facebook Graph API for information
+                var uri = new Uri($"https://graph.facebook.com/me?access_token={facebookLoginDto.FacebookAccessToken}&&fields=id,name,email,picture.width(640)");
+
+                // Read the response from Facebook
+                var result = await client.GetAsync(uri);
+                var jsonMessage = await result.Content.ReadAsStringAsync();
+
+                // Now try parsing it to get the information
+                try
+                {
+                    var userInfo = JsonConvert.DeserializeObject<FacebookUser>(jsonMessage);
+
+                    if (!string.IsNullOrEmpty(userInfo!.Id) && !string.IsNullOrEmpty(userInfo!.Email))
+                    {
+                        response.Data = new GetUserDto()
+                        {
+                            Id = "1",
+                            Name = userInfo.Name,
+                            Picture = userInfo.Picture.Data.Url,
+                            Email = userInfo.Email,
+                            DateJoined = DateTime.Today,
+                            JWTToken = CreateJWTToken(userInfo.Id, userInfo.Email)
+                        };
+                        response.Message = "Facebook login successfully";
+                    }
+                    // If login not success
+                    else
+                    {
+                        response.Message = "Facebook login failed";
+                        response.IsSuccess = false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    response.Message = "Server error";
+                    response.IsSuccess = false;
+                }
+            }
 
             return response;
         }
 
-        public async Task<ServiceResponse<LoginResponseDto>> LoginWithGoogle(GoogleLoginDto googleLoginDto)
+        public async Task<ServiceResponse<GetUserDto>> LoginWithGoogle(GoogleLoginDto googleLoginDto)
         {
-            var response = new ServiceResponse<LoginResponseDto>();
+            var response = new ServiceResponse<GetUserDto>();
 
             // Call Google API to verify the token
             using (var client = new HttpClient())
@@ -43,7 +84,6 @@ namespace NoobChessServer.Auth
 
                 // Read the response from Google
                 var result = await client.GetAsync(uri);
-
                 var jsonMessage = await result.Content.ReadAsStringAsync();
 
                 // Now try parsing it to get the information
@@ -53,13 +93,13 @@ namespace NoobChessServer.Auth
 
                     if (!string.IsNullOrEmpty(userInfo!.Sub) && !string.IsNullOrEmpty(userInfo!.Email))
                     {
-                        response.Data = new LoginResponseDto()
+                        response.Data = new GetUserDto()
                         {
-                            Sub = userInfo.Sub,
+                            Id = "1",
                             Name = userInfo.Name,
-                            Picture = userInfo.Picture,
+                            Picture = userInfo.Picture.Replace("s96-c", "s192-c"),
                             Email = userInfo.Email,
-                            Locale = userInfo.Locale,
+                            DateJoined = DateTime.Today,
                             JWTToken = CreateJWTToken(userInfo.Sub, userInfo.Email)
                         };
                         response.Message = "Google login successfully";
