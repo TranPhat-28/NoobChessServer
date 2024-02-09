@@ -30,48 +30,62 @@ namespace NoobChessServer.Auth
         {
             var response = new ServiceResponse<GetUserDto>();
 
-            // Call Facebook API to verify the token
-            // using (var client = new HttpClient())
-            // {
-            //     // Make a request to the Facebook Graph API for information
-            //     var uri = new Uri($"https://graph.facebook.com/me?access_token={facebookLoginDto.FacebookAccessToken}&&fields=id,name,email,picture.width(640)");
+            try
+            {
+                // Call Facebook API to verify the token
+                using (var client = new HttpClient())
+                {
+                    // Make a request to the Facebook Graph API for information
+                    var uri = new Uri($"https://graph.facebook.com/me?access_token={facebookLoginDto.FacebookAccessToken}&&fields=id,name,email,picture.width(640)");
 
-            //     // Read the response from Facebook
-            //     var result = await client.GetAsync(uri);
-            //     var jsonMessage = await result.Content.ReadAsStringAsync();
+                    // Read the response from Facebook
+                    var result = await client.GetAsync(uri);
+                    var jsonMessage = await result.Content.ReadAsStringAsync();
 
-            //     // Now try parsing it to get the information
-            //     try
-            //     {
-            //         var userInfo = JsonConvert.DeserializeObject<FacebookUser>(jsonMessage);
+                    // Now parse it to get the information
+                    var facebookUserInfo = JsonConvert.DeserializeObject<FacebookUser>(jsonMessage);
 
-            //         if (!string.IsNullOrEmpty(userInfo!.Id) && !string.IsNullOrEmpty(userInfo!.Email))
-            //         {
-            //             response.Data = new GetUserDto()
-            //             {
-            //                 Id = "1",
-            //                 Name = userInfo.Name,
-            //                 Picture = userInfo.Picture.Data.Url,
-            //                 Email = userInfo.Email,
-            //                 DateJoined = DateTime.Today,
-            //                 JWTToken = CreateJWTToken(userInfo.Id, userInfo.Email)
-            //             };
-            //             response.Message = "Facebook login successfully";
-            //         }
-            //         // If login not success
-            //         else
-            //         {
-            //             response.Message = "Facebook login failed";
-            //             response.IsSuccess = false;
-            //         }
-            //     }
-            //     catch (Exception ex)
-            //     {
-            //         Console.WriteLine(ex.Message);
-            //         response.Message = "Server error";
-            //         response.IsSuccess = false;
-            //     }
-            // }
+                    // Check in the DB for email
+                    bool userExists = await UserExists(facebookUserInfo!.Email);
+
+                    if (!userExists)
+                    // Not exists, write to DB first then load
+                    {
+                        // Facebook valid credential
+                        if (!string.IsNullOrEmpty(facebookUserInfo!.Id) && !string.IsNullOrEmpty(facebookUserInfo!.Email))
+                        {
+                            User newUser = new User()
+                            {
+                                Name = facebookUserInfo.Name,
+                                Picture = facebookUserInfo.Picture.Data.Url,
+                                Email = facebookUserInfo.Email
+                            };
+
+                            _dataContext.Users.Add(newUser);
+                            await _dataContext.SaveChangesAsync();
+                        }
+                        // If login not success
+                        else
+                        {
+                            response.Message = "Facebook login failed";
+                            response.IsSuccess = false;
+                        }
+                    }
+
+                    // Now load the users from DB and return
+                    var user = await _dataContext.Users.FirstAsync(u => u.Email == facebookUserInfo.Email);
+
+                    // The response
+                    response.Message = "Facebook login success";
+                    response.Data = _mapper.Map<GetUserDto>(user);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                response.Message = "Server error";
+                response.IsSuccess = false;
+            }
 
             return response;
         }
