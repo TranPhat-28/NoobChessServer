@@ -7,6 +7,7 @@ namespace NoobChessServer.DTOs.LoginDtos
 {
     public class FacebookLoginDto
     {
+        public string Email { get; set; } = "";
         public string FacebookAccessToken { get; set; } = "";
     }
 }

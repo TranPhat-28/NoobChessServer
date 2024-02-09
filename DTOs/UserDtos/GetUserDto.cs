@@ -7,11 +7,10 @@ namespace NoobChessServer.DTOs.UserDtos
 {
     public class GetUserDto
     {
-        public string Id { get; set; } = "";
+        public int Id { get; set; }
         public string Name { get; set; } = "";
         public string Picture { get; set; } = "";
         public string Email { get; set; } = "";
-        public DateTime DateJoined { get; set; }
-        public string JWTToken { get; set; } = "";
+        public string DateJoined { get; set; } = "";
     }
 }

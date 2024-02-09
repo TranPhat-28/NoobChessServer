@@ -9,63 +9,69 @@ using Newtonsoft.Json;
 using NoobChessServer.DTOs.LoginDtos;
 using System.IdentityModel.Tokens.Jwt;
 using NoobChessServer.DTOs.UserDtos;
+using Microsoft.EntityFrameworkCore;
+using AutoMapper;
 
 namespace NoobChessServer.Auth
 {
     public class AuthRepository : IAuthRepository
     {
         private readonly IConfiguration _configuration;
+        private readonly DataContext _dataContext;
+        private readonly IMapper _mapper;
 
-        public AuthRepository(IConfiguration configuration)
+        public AuthRepository(IConfiguration configuration, DataContext dataContext, IMapper mapper)
         {
             _configuration = configuration;
+            _dataContext = dataContext;
+            _mapper = mapper;
         }
         public async Task<ServiceResponse<GetUserDto>> LoginWithFacebook(FacebookLoginDto facebookLoginDto)
         {
             var response = new ServiceResponse<GetUserDto>();
 
-            // Call Google API to verify the token
-            using (var client = new HttpClient())
-            {
-                // Make a request to the Facebook Graph API for information
-                var uri = new Uri($"https://graph.facebook.com/me?access_token={facebookLoginDto.FacebookAccessToken}&&fields=id,name,email,picture.width(640)");
+            // Call Facebook API to verify the token
+            // using (var client = new HttpClient())
+            // {
+            //     // Make a request to the Facebook Graph API for information
+            //     var uri = new Uri($"https://graph.facebook.com/me?access_token={facebookLoginDto.FacebookAccessToken}&&fields=id,name,email,picture.width(640)");
 
-                // Read the response from Facebook
-                var result = await client.GetAsync(uri);
-                var jsonMessage = await result.Content.ReadAsStringAsync();
+            //     // Read the response from Facebook
+            //     var result = await client.GetAsync(uri);
+            //     var jsonMessage = await result.Content.ReadAsStringAsync();
 
-                // Now try parsing it to get the information
-                try
-                {
-                    var userInfo = JsonConvert.DeserializeObject<FacebookUser>(jsonMessage);
+            //     // Now try parsing it to get the information
+            //     try
+            //     {
+            //         var userInfo = JsonConvert.DeserializeObject<FacebookUser>(jsonMessage);
 
-                    if (!string.IsNullOrEmpty(userInfo!.Id) && !string.IsNullOrEmpty(userInfo!.Email))
-                    {
-                        response.Data = new GetUserDto()
-                        {
-                            Id = "1",
-                            Name = userInfo.Name,
-                            Picture = userInfo.Picture.Data.Url,
-                            Email = userInfo.Email,
-                            DateJoined = DateTime.Today,
-                            JWTToken = CreateJWTToken(userInfo.Id, userInfo.Email)
-                        };
-                        response.Message = "Facebook login successfully";
-                    }
-                    // If login not success
-                    else
-                    {
-                        response.Message = "Facebook login failed";
-                        response.IsSuccess = false;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                    response.Message = "Server error";
-                    response.IsSuccess = false;
-                }
-            }
+            //         if (!string.IsNullOrEmpty(userInfo!.Id) && !string.IsNullOrEmpty(userInfo!.Email))
+            //         {
+            //             response.Data = new GetUserDto()
+            //             {
+            //                 Id = "1",
+            //                 Name = userInfo.Name,
+            //                 Picture = userInfo.Picture.Data.Url,
+            //                 Email = userInfo.Email,
+            //                 DateJoined = DateTime.Today,
+            //                 JWTToken = CreateJWTToken(userInfo.Id, userInfo.Email)
+            //             };
+            //             response.Message = "Facebook login successfully";
+            //         }
+            //         // If login not success
+            //         else
+            //         {
+            //             response.Message = "Facebook login failed";
+            //             response.IsSuccess = false;
+            //         }
+            //     }
+            //     catch (Exception ex)
+            //     {
+            //         Console.WriteLine(ex.Message);
+            //         response.Message = "Server error";
+            //         response.IsSuccess = false;
+            //     }
+            // }
 
             return response;
         }
@@ -74,49 +80,61 @@ namespace NoobChessServer.Auth
         {
             var response = new ServiceResponse<GetUserDto>();
 
-            // Call Google API to verify the token
-            using (var client = new HttpClient())
+            try
             {
-                var uri = new Uri("https://www.googleapis.com/oauth2/v3/userinfo");
-
-                // Add the Google token to the request headers
-                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", googleLoginDto.GoogleAccessToken);
-
-                // Read the response from Google
-                var result = await client.GetAsync(uri);
-                var jsonMessage = await result.Content.ReadAsStringAsync();
-
-                // Now try parsing it to get the information
-                try
+                // Call Google API to verify the token
+                using (var client = new HttpClient())
                 {
-                    var userInfo = JsonConvert.DeserializeObject<GoogleUser>(jsonMessage);
+                    var uri = new Uri("https://www.googleapis.com/oauth2/v3/userinfo");
 
-                    if (!string.IsNullOrEmpty(userInfo!.Sub) && !string.IsNullOrEmpty(userInfo!.Email))
+                    // Add the Google token to the request headers
+                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", googleLoginDto.GoogleAccessToken);
+
+                    // Read the response from Google
+                    var result = await client.GetAsync(uri);
+                    var jsonMessage = await result.Content.ReadAsStringAsync();
+
+                    // Now parse it to get the information
+                    var googleUserInfo = JsonConvert.DeserializeObject<GoogleUser>(jsonMessage);
+
+                    // Check in the DB for email
+                    bool userExists = await UserExists(googleUserInfo!.Email);
+
+                    if (!userExists)
+                    // Not exists, write to DB first then load
                     {
-                        response.Data = new GetUserDto()
+                        // Google valid credential
+                        if (!string.IsNullOrEmpty(googleUserInfo!.Sub) && !string.IsNullOrEmpty(googleUserInfo!.Email))
                         {
-                            Id = "1",
-                            Name = userInfo.Name,
-                            Picture = userInfo.Picture.Replace("s96-c", "s192-c"),
-                            Email = userInfo.Email,
-                            DateJoined = DateTime.Today,
-                            JWTToken = CreateJWTToken(userInfo.Sub, userInfo.Email)
-                        };
-                        response.Message = "Google login successfully";
+                            var newUser = _mapper.Map<User>(googleUserInfo);
+                            // Get high quality profile picture
+                            newUser.Picture = newUser.Picture.Replace("s96-c", "s192-c");
+
+                            _dataContext.Users.Add(newUser);
+                            await _dataContext.SaveChangesAsync();
+                        }
+                        // If login not success
+                        else
+                        {
+                            response.Message = "Google login failed";
+                            response.IsSuccess = false;
+                        }
                     }
-                    // If login not success
-                    else
-                    {
-                        response.Message = "Google login failed";
-                        response.IsSuccess = false;
-                    }
+
+                    // Now load the users from DB and return
+                    var user = await _dataContext.Users.FirstAsync(u => u.Email == googleUserInfo.Email);
+
+                    // The response
+                    response.Message = "Google login success";
+                    response.Data = _mapper.Map<GetUserDto>(user);
+
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                    response.Message = "Server error";
-                    response.IsSuccess = false;
-                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                response.Message = "Server error";
+                response.IsSuccess = false;
             }
 
             return response;
@@ -161,6 +179,18 @@ namespace NoobChessServer.Auth
 
             // Write the token
             return tokenHandler.WriteToken(token);
+        }
+
+        public async Task<bool> UserExists(string email)
+        {
+            if (await _dataContext.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower()))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 }

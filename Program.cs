@@ -29,6 +29,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Auto Mapper
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
 // Service DI
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 
