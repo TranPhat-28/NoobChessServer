@@ -2,6 +2,7 @@ global using NoobChessServer.Models;
 global using NoobChessServer.Data;
 using Microsoft.EntityFrameworkCore;
 using NoobChessServer.Auth;
+using NoobChessServer.Services.ArticlesService;
 
 // Enable CORS
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
@@ -33,6 +34,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 // Service DI
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IArticlesService, ArticlesService>();
 
 var app = builder.Build();
 
