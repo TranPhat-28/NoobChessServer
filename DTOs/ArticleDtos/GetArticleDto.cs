@@ -13,6 +13,5 @@ namespace NoobChessServer.DTOs.ArticleDtos
         public string Url { get; set; } = "";
         public string UrlToImage { get; set; } = "";
         public string Content { get; set; } = "";
-
     }
 }
