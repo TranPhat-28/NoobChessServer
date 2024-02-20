@@ -8,12 +8,12 @@ namespace NoobChessServer.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class DeployTesting : ControllerBase
+    public class IsReady : ControllerBase
     {
         [HttpGet]
-        public ActionResult<ServiceResponse<string>> DeployTestingRoute()
+        public ActionResult<ServiceResponse<string>> ConnectionIsReady()
         {
-            return Ok("Connection OK");
+            return Ok("OK");
         }
     }
 }
