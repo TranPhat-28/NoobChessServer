@@ -50,12 +50,11 @@ namespace NoobChessServer.Services.SingleplayerService
                 var bestMove = _output.Last();
                 Console.WriteLine(bestMove);
 
-                // Console.WriteLine("Stockfish says that the best move is: " + bestMove);
-
                 response.Data = new ResponseMoveDto()
                 {
                     From = bestMove.Substring(9, 2),
-                    To = bestMove.Substring(11, 2)
+                    To = bestMove.Substring(11, 2),
+                    Promotion = bestMove.Substring(13, 1)
                 };
             }
             catch (Exception e)

@@ -9,5 +9,6 @@ namespace NoobChessServer.DTOs.SingleplayerMoveDtos
     {
         public string From { get; set; } = "";
         public string To { get; set; } = "";
+        public string Promotion { get; set; } = "";
     }
 }
