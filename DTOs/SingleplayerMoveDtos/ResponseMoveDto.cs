@@ -10,5 +10,8 @@ namespace NoobChessServer.DTOs.SingleplayerMoveDtos
         public string From { get; set; } = "";
         public string To { get; set; } = "";
         public string Promotion { get; set; } = "";
+        public bool IsGameOver { get; set; } = false;
+        public string WonSide { get; set; } = "";
+        public string EndgameType { get; set; } = "";
     }
 }
